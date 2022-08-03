@@ -127,14 +127,10 @@ def handleOnePath(path:str,forceEncode:bool=False,forceDecode:bool=False):
             result=f2w(path=path)
         else: # 强制解码
             result=w2f(path=path)
-    else:
-        result=0
     # 显示消息
-    if result: # 成功
-        print(getFormedStrByLanguage(formet=(path,result.name),en="File \"%s\" has been successfully converted to \"%s\"!",zh="文件「%s」已成功转换为「%s」！"))
-    elif result==0: # 文件不存在
-        print(getFormedStrByLanguage(formet=path,en="File \"%s\" is not exist!",zh="文件「%s」不存在！"))
-    else: # 失败
+    if result:
+        print(getFormedStrByLanguage(formet=path,en="File \"%s\" has been successfully converted!",zh="文件「%s」已成功转换！"))
+    else:
         print(getFormedStrByLanguage(formet=path,en="Failed to convert file \"%s\"!",zh="文件「%s」转换失败！"))
 
 # 主函数
