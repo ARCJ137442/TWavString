@@ -33,10 +33,10 @@ def file2bytes(path:str) -> bytes:
 def bytes2wav(rawData:bytes,outPath:str):
     '''将数据转存至wav'''
     # TODO：wav转换为文件时，尝试保留采样率等信息
-    # 字节单元自动补位
+    # 字节单元自动补位（最后一个字节代表的数字+一个字节单元，目的是降低「原始音频」的误认率）
     byteUnitSize:int=OUTPUT_SAMPLE_WIDTH*OUTPUT_CHANNELS
-    spareNum:int=byteUnitSize-len(rawData)%byteUnitSize # 自动补位将产生的空数据（1~byteUnitSize）
-    bytesToAppend:bytes=b'\x00'*(spareNum-1)+bytes([spareNum])
+    spareNum:int=(byteUnitSize<<1)-len(rawData)%byteUnitSize # 自动补位将产生的空数据（1~byteUnitSize + byteUnitSize）
+    bytesToAppend:bytes=bytes([spareNum])*spareNum # 将自动补位产生的字节追加至数据中
     rawDataFinal:bytes=rawData+bytesToAppend # 根据采样宽度与声道数量自动补位，并将最后一个字节用于剪切（若无冗余也创造一个冗余使之不被误认）
     # 生成文件并保存
     testSound = AudioSegment(
@@ -61,12 +61,17 @@ def wav2bytes(path:str) -> bytes:
     # 读取文件
     asFile:AudioSegment=AudioSegment.from_file(path)
     rawData:bytes=asFile.raw_data
-    # 剪裁（TODO：在原始音频文件中显得没必要，且将导致转换不可逆；如何区分一般数据与「待删除字节量」？）
+    # 剪裁（尽可能降低误认率）
     '''因「无法辨别标识字节处的字节码之用处」可能的效应：原始文件的末尾遭受被误认的标识字节的剪裁'''
-    toSliceByteNum:int=rawData[-1] # bytes 在截取单一byte时自动转换为int
     byteUnitSize:int=asFile.channels*asFile.sample_width
-    '''（能辨认大部分「原生音频」）若待裁剪字节数超出应有范围（1~字节单元大小），则不予裁剪（0的处理也是不裁剪）'''
-    return rawData if toSliceByteNum>byteUnitSize else rawData[:len(rawData)-toSliceByteNum]
+    toSliceByteNum:int=rawData[-1] # bytes 在截取单一byte时自动转换为int
+    needSlice:bool=( # 辨认是否需要进行裁剪
+        toSliceByteNum<=(byteUnitSize<<1) and
+        toSliceByteNum>byteUnitSize and # 辨认条件：「末尾字节」对应数字大于单元尺寸（但不超过两倍）
+        rawData[-toSliceByteNum:]==bytes([toSliceByteNum])*toSliceByteNum # 辨认条件：一个单元再加「末尾字节」个数的字节均为「末尾字节」
+        )
+    '''（能辨认大部分「原生音频」）若待裁剪字节数超出应有范围（1~字节单元大小 + 字节单元大小），则不予裁剪（0的处理也是不裁剪）'''
+    return rawData[:len(rawData)-toSliceByteNum] if needSlice else rawData
     # 一次失真，永久保真：字节单元问题给「原生音频」带来的影响微乎其微（仅有一点长度缩短）
 
 def bytes2file(rawData:bytes,outPath:str):
