@@ -1,11 +1,10 @@
-'''file2wav的技术基石：wav中无损包含、可获取写入的bytes数据（rawData）'''
+'''file2wav的技术基石：wav中无损包含、可获取写入的bytes数据（rawData）
+借用通用模块实现的TWavString测试
+'''
 
 from pydub import AudioSegment # 音频处理
 from pathlib import Path # 路径处理
-# TODO 基于命令行参数的可自定义编解码
-# TODO 路径截取&扩展名修改
-# TODO 命令行用户输入功能
-# TODO 《文件「字节单元」的补全与信息混淆问题》
+# TODO 支持对音频输出参数的自定义
 
 # 知识点：音频处理（pydub@AudioSegment），路径处理，字节流处理&读写，交互式命令行
 # 测试结果：在首次循环处理自身（文本文件）时存在3字节缺失，但其它文件（exe、7z）循环处理中均一字不差
@@ -14,9 +13,9 @@ COMPRESSED_FILE_SUFFIX='.wav'
 '''转存目标格式'''
 
 # 默认音频输出参数
-OUTPUT_SAMPLE_WIDTH:int=2
-OUTPUT_CHANNELS:int=2
-OUTPUT_FRAME_RATE:int=44100
+OUTPUT_SAMPLE_WIDTH:int=2 # 输出采样宽度
+OUTPUT_CHANNELS:int=2# 输出声道数
+OUTPUT_FRAME_RATE:int=44100 # 输出帧速率
 
 #lb=lambda x,l:[(x>>(8*i))&0xff for i in range(l,reversed=True)] # 数字转byteList
 #bs=lambda x:bytes(lb(x)) # 数字转bytes
@@ -86,78 +85,28 @@ def wav2file(path:str,outPath:str):
     return bytes2file(rawData=wav2bytes(path=path),outPath=outPath)
 
 # 面向输入的重写
-def f2w(path:str):
+def f2w(path:str,customArgvs:dict=None):
     '''文件到wav'''
     pathO:Path=Path(path)
     return file2wav(path=path,outPath=str(pathO.with_name(pathO.name+COMPRESSED_FILE_SUFFIX))) # 添加扩展名wav
 
-def w2f(path:str):
+def w2f(path:str,customArgvs:dict=None):
     '''wav到文件'''
     pathO:Path=Path(path)
     return wav2file(path=path,outPath=str(pathO.with_name(pathO.stem))) # 去掉扩展名wav
 
-# 命令行模式
-SELF_NAME='TWavString'
-from 字符串处理程序通用模块 import *
-def cmdLineMode(argv:list):
-    '''命令行模式，移植自TWayFoil'''
-    global numExcept
-    print("<===="+Path(argv[0]).stem+"====>")
-    while(True):
-        try:
-            numExcept=0
-            path=inputBL(en="Please insert PATH:",zh="\u8bf7\u8f93\u5165\u8def\u5f84\uff1a")
-            forceEncode=inputBool(gsbl(en="Forced encoding? %s",zh="强制编码？%s")%'Y/N:')
-            handleOnePath(path=path,
-                          forceEncode=forceEncode,
-                          forceDecode=False if forceEncode else inputBool(gsbl(en="Forced decoding? %s",zh="强制解码？%s")%'Y/N:'))
-        except BaseException as e:
-            catchExcept(e,path,"cmdLineMode()->")
-        if numExcept>0 and inputBool(gsbl(en="Do you want to terminate the program?",zh="\u4f60\u60f3\u7ec8\u6b62\u7a0b\u5e8f\u5417\uff1f")+"Y/N:"):
-            break
-        numExcept=0
-        print()#new line
-
-def handleOnePath(path:str,forceEncode:bool=False,forceDecode:bool=False):
-    '''处理单个文件路径'''
-    result=None
-    pathO=Path(path)
-    if pathO.exists():
-        if forceEncode == forceDecode: # 全真or全假 → 智能决定
-            if pathO.suffix==COMPRESSED_FILE_SUFFIX: # 是wav，解码
-                result=w2f(path=path)
-            else:
-                result=f2w(path=path)
-        elif forceEncode: # 若强制编码
-            result=f2w(path=path)
-        else: # 强制解码
-            result=w2f(path=path)
-    else:
-        result=0
-    # 显示消息
-    if result: # 成功
-        printFormedBL(format=(path,result.name),en="File \"%s\" has been successfully converted to \"%s\"!",zh="文件「%s」已成功转换为「%s」！")
-    elif result==0: # 文件不存在
-        printFormedBL(format=path,en="File \"%s\" is not exist!",zh="文件「%s」不存在！")
-    else: # 失败
-        printFormedBL(format=path,en="Failed to convert file \"%s\"!",zh="文件「%s」转换失败！")
+# 面向通用模块的重写
+from 字节码封装程序通用模块 import *
+selfProgram=ByteEncapsulatingProgram(
+    name='TWavString',
+    fileEncapsulateFunc=f2w,
+    fileDecapsulateFunc=w2f,
+    defaultDecasulateSuffixes=[".wav"],
+    customInputArgvTerms=[("osw",int,None,44100,'OUTPUT_SAMPLE_WIDTH：','输出采样宽度：')]
+)
+selfProgram.customInputArgvTerms
 
 # 主函数
 if __name__ == "__main__":
     from sys import argv
-    forceEncode='-e' in argv
-    forceDecode='-d' in argv
-    if len(argv)>1:# 若有参数则根据参数进行处理
-        pathO:Path
-        for path in argv[1:]:
-           handleOnePath(path=path,forceEncode=forceEncode,forceDecode=forceDecode)
-    else: # 否则进入命令行模式
-        cmdLineMode(argv=argv)
-    #file_handle=file2wav(path="test.txt",outPath="test_.wav")
-    #file_handle=wav2file(path="test_.wav",outPath="outTest.txt")
-    
-    #file_handle=wav2file(path="test.wav",outPath="test_.txt")
-    #file_handle=file2wav(path="test_.txt",outPath="outTest.wav")
-    
-    #f2w("TWavString_.py")
-    #w2f("TWavString_.py.wav")
+    selfProgram.executeAsMain(argv=argv)

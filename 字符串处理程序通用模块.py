@@ -1,16 +1,18 @@
-'''字符串处理程序通用模块 Ver.20220803
+'''字符串处理程序通用模块 Ver.20220811
 功能：
 中文、英文的国际化交互实现（按照系统语言调整输出）
 错误追踪的格式化输出
 快捷读取文件内容
 '''
+# TODO 去除输入中仅能有en/zh的限制，采用dict包实现国际化
+
 # 内部模块
 import errno # 错误码
 import traceback # 错误追踪
 
 # 自动获取系统语言
 SYSTEM_LANGUAGE=0
-try:import win32api;SYSTEM_LANGUAGE=win32api.GetSystemDefaultLangID()
+try:import win32api;SYSTEM_LANGUAGE=win32api.GetUserDefaultLangID()
 except:pass
 
 # 按照系统语言调整输出
@@ -25,12 +27,14 @@ def printBL(en:str='',zh:str='') -> None:
     '''按照系统语言选择字符串并打印'''
     print(getStrByLanguage(en=en,zh=zh))
     
-def getFormedStrByLanguage(formet,en:str='',zh:str='') -> str:
+def getFormedStrByLanguage(format,en:str='',zh:str='') -> str:
     '''按照系统语言选择字符串，并加以格式化处理'''
-    return getStrByLanguage(en=en,zh=zh)%formet
-def printFormedBL(formet,en:str='',zh:str='') -> None:
+    return getStrByLanguage(en=en,zh=zh)%format
+def printFormedBL(format,en:str='',zh:str='') -> None:
     '''按照系统语言选择字符串并打印'''
-    print(getFormedStrByLanguage(formet=formet,en=en,zh=zh))
+    print(getFormedStrByLanguage(format=format,en=en,zh=zh))
+
+# 基于国际化输出的智能输入
 
 def inputBL(en:str='',zh:str='') -> str:
     '''获取输入并按照系统语言选择输入提示字符串'''
@@ -44,14 +48,28 @@ def inputBoolBL(en:str='',zh:str='') -> bool:
     '''获取输入，将其转换为布尔值，并按照系统语言选择输入提示字符串'''
     return inputBool(gsbl(en=en,zh=zh))
 
+def inputInt(defaultWhenEmpty:int=0,message:str='') -> int:
+    '''获取输入（整数）'''
+    return _softParseInt(defaultWhenEmpty=defaultWhenEmpty,context=input(message))
 def inputIntBL(defaultWhenEmpty:int=0,en:str='',zh:str='') -> int:
     '''获取输入（整数）并按照系统语言选择输入提示字符串'''
-    return _softParseInt(defaultWhenEmpty=defaultWhenEmpty,context=inputBL(en=en,zh=zh))
-
+    return inputInt(defaultWhenEmpty=defaultWhenEmpty,message=gsbl(en=en,zh=zh))
 def _softParseInt(context:str,defaultWhenEmpty:int=0) -> int:
-    if not context:
-        return defaultWhenEmpty
-    return int(context)
+    return int(context) if context else defaultWhenEmpty
+
+def autoTypeInputBL(inputType:any,en:str='',zh:str='',formatObj:any=None,defaultWhenEmpty=None):
+    message=gsbl(en=en,zh=zh)
+    message=message%formatObj if formatObj else message
+    if inputType==int:
+        return inputInt(defaultWhenEmpty=int(defaultWhenEmpty) if defaultWhenEmpty else 0,message=message)
+    elif inputType==bool:
+        return inputBool(defaultWhenEmpty=defaultWhenEmpty if defaultWhenEmpty else False,message=message)
+    else:
+        message=input(message=message)
+        return message if message else (defaultWhenEmpty if defaultWhenEmpty else '')
+        
+
+# 将消息与路径进行整合
 
 def printPath(message:str,path:str) -> str:
     '''将消息与路径整合在一起'''
