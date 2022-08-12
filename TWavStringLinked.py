@@ -29,11 +29,11 @@ def file2bytes(path:str) -> bytes:
         result=testText.read()
     return result
 
-def bytes2wav(rawData:bytes,outPath:str):
+def bytes2wav(rawData:bytes,outPath:str,sampleWidth:int,channels:int,frameRate:int):
     '''将数据转存至wav'''
     # TODO：wav转换为文件时，尝试保留采样率等信息
     # 字节单元自动补位（最后一个字节代表的数字+一个字节单元，目的是降低「原始音频」的误认率）
-    byteUnitSize:int=OUTPUT_SAMPLE_WIDTH*OUTPUT_CHANNELS
+    byteUnitSize:int=sampleWidth*channels
     spareNum:int=(byteUnitSize<<1)-len(rawData)%byteUnitSize # 自动补位将产生的空数据（1~byteUnitSize + byteUnitSize）
     bytesToAppend:bytes=bytes([spareNum])*spareNum # 将自动补位产生的字节追加至数据中
     rawDataFinal:bytes=rawData+bytesToAppend # 根据采样宽度与声道数量自动补位，并将最后一个字节用于剪切（若无冗余也创造一个冗余使之不被误认）
@@ -41,18 +41,20 @@ def bytes2wav(rawData:bytes,outPath:str):
     testSound = AudioSegment(
         # raw audio data (bytes)
         data=rawDataFinal,# 与from_file()的raw_data格式相同（此为file2wav的技术基石）
-        # 2 byte (16 bit) samples
-        sample_width=OUTPUT_SAMPLE_WIDTH,
-        # 44.1 kHz frame rate
-        frame_rate=OUTPUT_FRAME_RATE,
-        # stereo
-        channels=OUTPUT_CHANNELS
+        # sampleWidth byte (16 bit) samples
+        sample_width=sampleWidth,
+        # frameRate Hz frame rate
+        frame_rate=frameRate,
+        # mono=1,stereo=2
+        channels=channels
     )
     return testSound.export(outPath, format="wav")
 
-def file2wav(path:str,outPath:str):
+def file2wav(path:str,outPath:str,sampleWidth:int,channels:int,frameRate:int):
     '''将文件内数据转存至wav'''
-    return bytes2wav(rawData=file2bytes(path=path),outPath=outPath)
+    return bytes2wav(rawData=file2bytes(path=path),outPath=outPath,
+        sampleWidth=sampleWidth,channels=channels,frameRate=frameRate
+    )
 
 # wav2file
 def wav2bytes(path:str) -> bytes:
@@ -88,7 +90,12 @@ def wav2file(path:str,outPath:str):
 def f2w(path:str,customArgvs:dict=None):
     '''文件到wav'''
     pathO:Path=Path(path)
-    return file2wav(path=path,outPath=str(pathO.with_name(pathO.name+COMPRESSED_FILE_SUFFIX))) # 添加扩展名wav
+    return file2wav(path=path,
+        outPath=str(pathO.with_name(pathO.name+COMPRESSED_FILE_SUFFIX)),
+        sampleWidth=customArgvs["sampleWidth"],
+        channels=customArgvs["channels"],
+        frameRate=customArgvs["frameRate"]
+    ) # 添加扩展名wav
 
 def w2f(path:str,customArgvs:dict=None):
     '''wav到文件'''
@@ -97,12 +104,18 @@ def w2f(path:str,customArgvs:dict=None):
 
 # 面向通用模块的重写
 from 字节码封装程序通用模块 import *
+LBtSTDV_EN:str='(Leave blank to select the default value %d)'
+LBtSTDV_ZH:str='（留空以选择默认值%d）'
 selfProgram=ByteEncapsulatingProgram(
     name='TWavString',
     fileEncapsulateFunc=f2w,
     fileDecapsulateFunc=w2f,
-    defaultDecasulateSuffixes=[".wav"],
-    customInputArgvTerms=[("osw",int,None,44100,'OUTPUT_SAMPLE_WIDTH：','输出采样宽度：')]
+    defaultDecasulateSuffixes=[COMPRESSED_FILE_SUFFIX],
+    customInputArgvTerms=[
+        ("sampleWidth",int,OUTPUT_SAMPLE_WIDTH,OUTPUT_SAMPLE_WIDTH,-1,LBtSTDV_EN+'Sample Width: ',LBtSTDV_ZH+'采样宽度：'),
+        ("channels",int,OUTPUT_CHANNELS,OUTPUT_CHANNELS,-1,LBtSTDV_EN+'Channels: ',LBtSTDV_ZH+'声道数：'),
+        ("frameRate",int,OUTPUT_FRAME_RATE,OUTPUT_FRAME_RATE,-1,LBtSTDV_EN+'Frame Rate: ',LBtSTDV_ZH+'帧速率：')
+    ] # (参数名,类型,格式化参数,空时默认值,限定提供情况标签,en提示,zh提示)
 )
 selfProgram.customInputArgvTerms
 
