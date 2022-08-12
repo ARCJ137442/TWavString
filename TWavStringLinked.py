@@ -117,7 +117,6 @@ selfProgram=ByteEncapsulatingProgram(
         ("frameRate",int,OUTPUT_FRAME_RATE,OUTPUT_FRAME_RATE,-1,LBtSTDV_EN+'Frame Rate: ',LBtSTDV_ZH+'帧速率：')
     ] # (参数名,类型,格式化参数,空时默认值,限定提供情况标签,en提示,zh提示)
 )
-selfProgram.customInputArgvTerms
 
 # 主函数
 if __name__ == "__main__":
