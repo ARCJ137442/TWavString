@@ -3,10 +3,8 @@
 '''
 
 from pydub import AudioSegment # 音频处理
-from pathlib import Path # 路径处理
-# TODO 支持对音频输出参数的自定义
 
-# 知识点：音频处理（pydub@AudioSegment），路径处理，字节流处理&读写，交互式命令行
+# 知识点：音频处理（pydub@AudioSegment），字节流处理&读写，交互式命令行
 # 测试结果：在首次循环处理自身（文本文件）时存在3字节缺失，但其它文件（exe、7z）循环处理中均一字不差
 
 COMPRESSED_FILE_SUFFIX='.wav'
@@ -87,29 +85,28 @@ def wav2file(path:str,outPath:str):
     return bytes2file(rawData=wav2bytes(path=path),outPath=outPath)
 
 # 面向输入的重写
-def f2w(path:str,customArgvs:dict=None):
+def f2w(path:str,outPath:str,customArgvs:dict=None):
     '''文件到wav'''
-    pathO:Path=Path(path)
     return file2wav(path=path,
-        outPath=str(pathO.with_name(pathO.name+COMPRESSED_FILE_SUFFIX)),
+        outPath=outPath,
         sampleWidth=customArgvs["sampleWidth"],
         channels=customArgvs["channels"],
         frameRate=customArgvs["frameRate"]
     ) # 添加扩展名wav
 
-def w2f(path:str,customArgvs:dict=None):
+def w2f(path:str,outPath:str,customArgvs:dict=None):
     '''wav到文件'''
-    pathO:Path=Path(path)
-    return wav2file(path=path,outPath=str(pathO.with_name(pathO.stem))) # 去掉扩展名wav
+    return wav2file(path=path,outPath=outPath) # 去掉扩展名wav
 
 # 面向通用模块的重写
 from 字节码封装程序通用模块 import *
 LBtSTDV_EN:str='(Leave blank to select the default value %d)'
 LBtSTDV_ZH:str='（留空以选择默认值%d）'
 selfProgram=ByteEncapsulatingProgram(
-    name='TWavString',
+    name='TWavString',version='2.0.0',
     fileEncapsulateFunc=f2w,
     fileDecapsulateFunc=w2f,
+    defaultEncasulateSuffix=COMPRESSED_FILE_SUFFIX,
     defaultDecasulateSuffixes=[COMPRESSED_FILE_SUFFIX],
     customInputArgvTerms=[
         ("sampleWidth",int,OUTPUT_SAMPLE_WIDTH,OUTPUT_SAMPLE_WIDTH,-1,LBtSTDV_EN+'Sample Width: ',LBtSTDV_ZH+'采样宽度：'),

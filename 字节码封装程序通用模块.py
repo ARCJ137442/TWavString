@@ -9,16 +9,26 @@ from 字符串处理程序通用模块 import * # 字符串处理&国际化文�
 # TODO 路径截取&扩展名修改
 # TODO 命令行用户输入功能
 
-# 知识点：，路径处理，交互式命令行，面向对象编程
+# 知识点：路径处理，交互式命令行，面向对象编程
 
 class ByteEncapsulatingProgram:
     
     # 名称标识 #
     programName="UNKNOWN"
-    defaultDecasulateSuffix:list=[]
+    '''存储程序名称'''
+    
+    programVersion=None
+    '''存储程序版本'''
+    
+    defaultDecasulateSuffixes:list
+    '''存储程序默认进行解压的扩展名'''
+    
+    defaultEncasulateSuffix:str=None
+    '''存储程序默认压缩成的扩展名'''
     
     # 构造函数 #
-    def __init__(self,name:str=None,
+    def __init__(self,name:str=None,version:str=None,
+                 defaultEncasulateSuffix:list=None,
                  defaultDecasulateSuffixes:list=None,
                  fileEncapsulateFunc=None,
                  fileDecapsulateFunc=None,
@@ -26,7 +36,9 @@ class ByteEncapsulatingProgram:
     ) -> None:
         __smpInpDef=lambda input,default: input if input else default
         self.programName=__smpInpDef(name,self.programName)
-        self.defaultDecasulateSuffix=__smpInpDef(defaultDecasulateSuffixes,self.defaultDecasulateSuffix)
+        self.programVersion=__smpInpDef(version,self.programVersion)
+        self.defaultEncasulateSuffix=__smpInpDef(defaultEncasulateSuffix,self.defaultEncasulateSuffix)
+        self.defaultDecasulateSuffixes=__smpInpDef(defaultDecasulateSuffixes,[self.defaultEncasulateSuffix])
         self.fileEncapsulateFunc=__smpInpDef(fileEncapsulateFunc,self.fileEncapsulateFunc)
         self.fileDecapsulateFunc=__smpInpDef(fileDecapsulateFunc,self.fileDecapsulateFunc)
         self.customInputArgvTerms=__smpInpDef(customInputArgvTerms,self.customInputArgvTerms)
@@ -35,7 +47,9 @@ class ByteEncapsulatingProgram:
     # 析构函数 #
     def __del__(self):
         self.programName=None
-        self.defaultDecasulateSuffix=None
+        self.programVersion=None
+        self.defaultDecasulateSuffixes=None
+        self.defaultEncasulateSuffix=None
         self.fileEncapsulateFunc=None
         self.fileDecapsulateFunc=None
         self.argvBoolSpecialOptions=None
@@ -44,11 +58,11 @@ class ByteEncapsulatingProgram:
     
     # 处理函数引用&自定义参数需求 #
     fileEncapsulateFunc=None
-    '''存储封装函数的引用：function(path:str,customArgvs:dict) -> any\n
+    '''存储封装函数的引用：function(path:str,outPath:str,customArgvs:dict) -> any\n
     ！返回非空值代表封装成功
     '''
     fileDecapsulateFunc=None
-    '''存储解封函数的引用：function(path:str,customArgvs:dict) -> any\n
+    '''存储解封函数的引用：function(path:str,outPath:str,customArgvs:dict) -> any\n
     ！返回非空值代表解封成功
     '''
     
@@ -77,7 +91,9 @@ class ByteEncapsulatingProgram:
     '''错误计数，用于在多次错误后提示结束程序'''
     def cmdLineMode(self,argv:list):
         '''命令行模式，移植自TWayFoil并泛化为一般式处理函数'''
-        print("<===="+Path(argv[0]).stem+"====>")
+        print("<====%s%s====>"%(self.programName,
+            ' Ver.'+self.programVersion if self.programVersion else '')
+        )
         pathO:Path
         while(True):
             try:
@@ -86,7 +102,7 @@ class ByteEncapsulatingProgram:
                     path=inputBL(en="Please insert path:",zh="\u8bf7\u8f93\u5165\u8def\u5f84\uff1a")
                     pathO=Path(path)
                     if not (pathO and pathO.exists()):
-                        printFormedBL(format=path,en="File \"%s\" is not exist!",zh="文件「%s」不存在！")
+                        printFormedBL(format=path,en="File \"%s\" is not exist!",zh="文件「%s」不存在！") or print() # 用or加上一行空行
                     else:
                         break
                 # 处理强制封装解封
@@ -112,21 +128,23 @@ class ByteEncapsulatingProgram:
         '''处理单个文件路径（不检查路径是否存在）'''
         result=None
         # 第一次计算是封装还是解封（通过重用变量减少代码量）
-        result=((Path(path).suffix in self.defaultDecasulateSuffix) # 若为默认解封的扩展名（带"."），解封，否则封装
+        result=((Path(path).suffix in self.defaultDecasulateSuffixes) # 若为默认解封的扩展名（带"."），解封，否则封装
                 if forceEncode == forceDecode # 全真or全假 → 智能决定
                 else (not forceEncode) # 强制封装&强制解封
         )
         # 若无自定义输入则要求输入自定义参数（非命令行模式中强制要求）
         if not customInputArgvs:
             customInputArgvs=self.getCustomInputArgvs(modeFlag=1 if result else -1)# 正解负加
+        # 生成输出路径
+        pathO:Path=Path(path)
+        outPath:str=(str(pathO.with_name(pathO.stem)) if result
+            else str(pathO.with_name(pathO.name+self.defaultEncasulateSuffix)))
         # 第二次开始封装/解封（真则解，假则封）
-        result=(self.fileDecapsulateFunc(path=path,customArgvs=customInputArgvs) if result
-                else self.fileEncapsulateFunc(path=path,customArgvs=customInputArgvs))
+        result=(self.fileDecapsulateFunc(path=path,outPath=outPath,customArgvs=customInputArgvs) if result
+                else self.fileEncapsulateFunc(path=path,outPath=outPath,customArgvs=customInputArgvs))
         # 显示消息
         if result: # 成功
-            printFormedBL(format=(path,result.name),en="File \"%s\" has been successfully converted to \"%s\"!",zh="文件「%s」已成功转换为「%s」！")
-        elif result==0: # 文件不存在（停用）
-            printFormedBL(format=path,en="File \"%s\" is not exist!",zh="文件「%s」不存在！")
+            printFormedBL(format=(path,outPath),en="File \"%s\" has been successfully converted to \"%s\"!",zh="文件「%s」已成功转换为「%s」！")
         else: # 失败
             printFormedBL(format=path,en="Failed to convert file \"%s\"!",zh="文件「%s」转换失败！")
 

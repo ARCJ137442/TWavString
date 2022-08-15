@@ -8,11 +8,14 @@
 
 # 内部模块
 import errno # 错误码
-import traceback # 错误追踪
+from traceback import format_exc # 错误追踪
 
 # 自动获取系统语言
 SYSTEM_LANGUAGE=0
-try:import win32api;SYSTEM_LANGUAGE=win32api.GetUserDefaultLangID()
+try:
+    import pywintypes # 防止打包的exe因win32api的问题出错
+    from win32api import GetUserDefaultLangID
+    SYSTEM_LANGUAGE=GetUserDefaultLangID()
 except:pass
 
 # 按照系统语言调整输出
@@ -82,7 +85,7 @@ def printPathBL(path:str,en:str,zh:str) -> str:
 # 报错相关
 def printExcept(exc:BaseException,funcPointer:str) -> None:
     '''有提示消息地报错'''
-    print(funcPointer+gsbl(en="A exception was found:",zh="\u53d1\u73b0\u5f02\u5e38\uff1a"),exc,"\n"+traceback.format_exc())
+    print(funcPointer+gsbl(en="A exception was found:",zh="\u53d1\u73b0\u5f02\u5e38\uff1a"),exc,"\n"+format_exc())
 
 def catchExcept(err:BaseException,path:str,head:str) -> None:
     '''有提示消息地报错，并分错误码呈现提示消息'''
