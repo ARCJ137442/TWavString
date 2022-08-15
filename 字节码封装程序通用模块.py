@@ -14,10 +14,10 @@ from 字符串处理程序通用模块 import * # 字符串处理&国际化文�
 class ByteEncapsulatingProgram:
     
     # 名称标识 #
-    programName="UNKNOWN"
+    programName:str="UNKNOWN"
     '''存储程序名称'''
     
-    programVersion=None
+    programVersion:str=None
     '''存储程序版本'''
     
     defaultDecasulateSuffixes:list
@@ -45,7 +45,7 @@ class ByteEncapsulatingProgram:
         
         
     # 析构函数 #
-    def __del__(self):
+    def __del__(self) -> None:
         self.programName=None
         self.programVersion=None
         self.defaultDecasulateSuffixes=None
@@ -55,6 +55,7 @@ class ByteEncapsulatingProgram:
         self.argvBoolSpecialOptions=None
         self.customInputArgvTerms=None
         self.numExcept=0
+        self.cachedCustomInputArgvs=None
     
     # 处理函数引用&自定义参数需求 #
     fileEncapsulateFunc=None
@@ -72,27 +73,53 @@ class ByteEncapsulatingProgram:
     限定提供情况标签：指定是否仅在封装/解封时要求输入，0为不限，-仅封装，+仅解封
     '''
     
-    @staticmethod
-    def fetchCustomInputArgv(argvs:dict,argvName:str=''):
-        return argvs.get(argvName) if argvs else None
+    def getCustomInputArgv(self,argvs:dict=None,argvName:str='') -> any:
+        '''从用户输入的自定义参数中获取某个自定义参数；\n
+        在字典空余时，若有缓存的自定义参数，则优先直接读取而不要求输入'''
+        return argvs.get(argvName) if argvs else self.getCustomInputArgv(argvs=self.cachedCustomInputArgvs,argvName=argvName)
     
-    # 命令行模式 #
-    def getCustomInputArgvs(self,modeFlag:int=0) -> dict:
+    def generateCustomInputArgvs(self,modeFlag:int=0,toPutIn:dict=None) -> dict:
         '''从用户的一系列输入中获取一个参数字典，用于自定义命令行模式的参数\n
         情况标签：指定是否仅在封装/解封时要求输入，0为不限，-仅封装，+仅解封
         '''
-        result={}
+        result={} if toPutIn==None else toPutIn # 区分None与{}
         for varName,inpType,formatObj,defaultWhenEmpty,limitingFlag,hintEN,hintZH in self.customInputArgvTerms:
             if modeFlag*limitingFlag>=0: # 仅在任一方不限或模式标签相同时请求输入
                 result[varName]=autoTypeInputBL(inputType=inpType,formatObj=formatObj,defaultWhenEmpty=defaultWhenEmpty,en=hintEN,zh=hintZH)
         return result
-
+    
+    cachedCustomInputArgvs:dict={}
+    '''缓存了的对象列表'''
+    
+    isEncapsulateArgvsCached:bool=False
+    '''程序是否缓存了封装相关的自定义参数'''
+    
+    isDecapsulateArgvsCached:bool=False
+    '''程序是否缓存了解封相关的自定义参数'''
+    
+    def isCustomInputArgvsCached(self,modeFlag:int=0) -> bool:
+        return (modeFlag>0 or self.isEncapsulateArgvsCached) and (modeFlag<0 or self.isDecapsulateArgvsCached)
+        
+    def cacheCustomInputArgvs(self,modeFlag:int=0) -> dict:
+        '''向程序缓存设置，用于在有参数模式下减少非必要重复参数输入\n
+        情况标签：指定是否仅在封装/解封时要求输入，0为不限，-仅封装，+仅解封'''
+        self.generateCustomInputArgvs(modeFlag=modeFlag,toPutIn=self.cachedCustomInputArgvs)
+        # 更新标签
+        if modeFlag<=0: self.isEncapsulateArgvsCached=True
+        if modeFlag>=0: self.isDecapsulateArgvsCached=True
+    
+    def deleteCachedCustomArgvs(self) -> None:
+        self.isEncapsulateArgvsCached=False
+        self.isDecapsulateArgvsCached=False
+        self.cachedCustomInputArgvs={}
+    
+    # 命令行模式 #
     numExcept:int=0
     '''错误计数，用于在多次错误后提示结束程序'''
-    def cmdLineMode(self,argv:list):
+    def cmdLineMode(self,argv:list) -> None:
         '''命令行模式，移植自TWayFoil并泛化为一般式处理函数'''
         print("<====%s%s====>"%(self.programName,
-            ' Ver.'+self.programVersion if self.programVersion else '')
+            ' Ver '+self.programVersion if self.programVersion else '')
         )
         pathO:Path
         while(True):
@@ -124,7 +151,7 @@ class ByteEncapsulatingProgram:
                     break
             print()#new line
 
-    def handleOnePath(self,path:str,forceEncode:bool=False,forceDecode:bool=False,customInputArgvs:dict=None):
+    def handleOnePath(self,path:str,forceEncode:bool=False,forceDecode:bool=False,customInputArgvs:dict=None) -> None:
         '''处理单个文件路径（不检查路径是否存在）'''
         result=None
         # 第一次计算是封装还是解封（通过重用变量减少代码量）
@@ -132,16 +159,23 @@ class ByteEncapsulatingProgram:
                 if forceEncode == forceDecode # 全真or全假 → 智能决定
                 else (not forceEncode) # 强制封装&强制解封
         )
-        # 若无自定义输入则要求输入自定义参数（非命令行模式中强制要求）
-        if not customInputArgvs:
-            customInputArgvs=self.getCustomInputArgvs(modeFlag=1 if result else -1)# 正解负加
+        # 若无自定义输入则要求输入自定义参数（无参数模式中强制要求）
+        modeFlag:int=1 if result else -1
+        if customInputArgvs==None: # 区分None与空字典
+            customInputArgvs=self.generateCustomInputArgvs(modeFlag=modeFlag)# 正解负加
+        else: # 若有（非命令行模式）则只要求输入一次（使用缓存系统）
+            if not self.isCustomInputArgvsCached(modeFlag=modeFlag):
+                self.cacheCustomInputArgvs(modeFlag=modeFlag) # 缓存
+            customInputArgvs=self.cachedCustomInputArgvs
         # 生成输出路径
         pathO:Path=Path(path)
         outPath:str=(str(pathO.with_name(pathO.stem)) if result
-            else str(pathO.with_name(pathO.name+self.defaultEncasulateSuffix)))
+            else str(pathO.with_name(pathO.name+self.defaultEncasulateSuffix))
+        )
         # 第二次开始封装/解封（真则解，假则封）
         result=(self.fileDecapsulateFunc(path=path,outPath=outPath,customArgvs=customInputArgvs) if result
-                else self.fileEncapsulateFunc(path=path,outPath=outPath,customArgvs=customInputArgvs))
+            else self.fileEncapsulateFunc(path=path,outPath=outPath,customArgvs=customInputArgvs)
+        )
         # 显示消息
         if result: # 成功
             printFormedBL(format=(path,outPath),en="File \"%s\" has been successfully converted to \"%s\"!",zh="文件「%s」已成功转换为「%s」！")
@@ -168,16 +202,15 @@ class ByteEncapsulatingProgram:
     def executeAsMain(self,argv:list) -> None:
         '''以主函数形式运行；命令行默认将"-e"与"-d"作为强制封装、解封之特殊布尔参数'''
         if len(argv)>1:# 若有参数则根据参数进行处理
-            # 处理自定义参数需求（合并字典）
-            customInputArgvs:dict=self.getBoolCLSettingsInArgv(argv=argv)
-            customInputArgvs.update(self.getCustomInputArgvs())
+            # 处理自定义参数
+            self.cachedCustomInputArgvs.update(self.getBoolCLSettingsInArgv(argv=argv)) # 并入输入参数中的自定义参数
             for path in argv[1:]:
-                # 开始逐个处理路径
+                # 开始逐个处理路
                 if Path(path).exists():
                     self.handleOnePath(path=path,
-                        forceEncode=self.getBoolCLSetting(settings=customInputArgvs,key="-e"),
-                        forceDecode=self.getBoolCLSetting(settings=customInputArgvs,key="-d"),
-                        customInputArgvs=customInputArgvs
+                        forceEncode=self.getBoolCLSetting(settings=self.cachedCustomInputArgvs,key="-e"),
+                        forceDecode=self.getBoolCLSetting(settings=self.cachedCustomInputArgvs,key="-d"),
+                        customInputArgvs=self.cachedCustomInputArgvs
                     )
         else: # 否则进入命令行模式
             self.cmdLineMode(argv=argv)

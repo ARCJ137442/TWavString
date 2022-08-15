@@ -34,8 +34,7 @@ end
 git status
 
 # Test
-*.txt
-*.wav
+*[Tt]est*
 
 # Executables
 *.exe

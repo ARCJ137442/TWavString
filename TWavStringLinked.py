@@ -2,6 +2,7 @@
 借用通用模块实现的TWavString测试
 '''
 
+from io import BufferedRandom, BufferedReader, BufferedWriter # 返回值类型标注
 from pydub import AudioSegment # 音频处理
 
 # 知识点：音频处理（pydub@AudioSegment），字节流处理&读写，交互式命令行
@@ -27,7 +28,7 @@ def file2bytes(path:str) -> bytes:
         result=testText.read()
     return result
 
-def bytes2wav(rawData:bytes,outPath:str,sampleWidth:int,channels:int,frameRate:int):
+def bytes2wav(rawData:bytes,outPath:str,sampleWidth:int,channels:int,frameRate:int) -> BufferedRandom:
     '''将数据转存至wav'''
     # TODO：wav转换为文件时，尝试保留采样率等信息
     # 字节单元自动补位（最后一个字节代表的数字+一个字节单元，目的是降低「原始音频」的误认率）
@@ -48,7 +49,7 @@ def bytes2wav(rawData:bytes,outPath:str,sampleWidth:int,channels:int,frameRate:i
     )
     return testSound.export(outPath, format="wav")
 
-def file2wav(path:str,outPath:str,sampleWidth:int,channels:int,frameRate:int):
+def file2wav(path:str,outPath:str,sampleWidth:int,channels:int,frameRate:int) -> BufferedRandom:
     '''将文件内数据转存至wav'''
     return bytes2wav(rawData=file2bytes(path=path),outPath=outPath,
         sampleWidth=sampleWidth,channels=channels,frameRate=frameRate
@@ -73,19 +74,19 @@ def wav2bytes(path:str) -> bytes:
     return rawData[:len(rawData)-toSliceByteNum] if needSlice else rawData
     # 一次失真，永久保真：字节单元问题给「原生音频」带来的影响微乎其微（仅有一点长度缩短）
 
-def bytes2file(rawData:bytes,outPath:str):
+def bytes2file(rawData:bytes,outPath:str) -> BufferedWriter:
     '''将数据写入文件'''
     # 写入文件
     with open(file=outPath,mode='wb',buffering=-1) as result:
         result.write(rawData)
     return result
 
-def wav2file(path:str,outPath:str):
+def wav2file(path:str,outPath:str) -> BufferedWriter:
     '''提取wav存储的数据并将其写入文件'''
     return bytes2file(rawData=wav2bytes(path=path),outPath=outPath)
 
 # 面向输入的重写
-def f2w(path:str,outPath:str,customArgvs:dict=None):
+def f2w(path:str,outPath:str,customArgvs:dict=None) -> BufferedRandom:
     '''文件到wav'''
     return file2wav(path=path,
         outPath=outPath,
@@ -94,7 +95,7 @@ def f2w(path:str,outPath:str,customArgvs:dict=None):
         frameRate=customArgvs["frameRate"]
     ) # 添加扩展名wav
 
-def w2f(path:str,outPath:str,customArgvs:dict=None):
+def w2f(path:str,outPath:str,customArgvs:dict=None) -> BufferedWriter:
     '''wav到文件'''
     return wav2file(path=path,outPath=outPath) # 去掉扩展名wav
 

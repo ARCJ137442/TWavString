@@ -2,7 +2,7 @@
 借用通用模块实现的TWayFoil测试
 '''
 
-from io import BufferedReader
+from io import BufferedReader, BufferedWriter
 from PIL import Image # 图片处理
 from tqdm import tqdm # 进度条
 # 知识点：图片处理（PIL@Image），进度条，字节流处理&读写
@@ -27,7 +27,7 @@ def file2bytes(path:str) -> bytes:
         result=testText.read()
     return result
 
-def bytes2image(rawData:bytes,outPath:str,enableCompressionMode:bool):
+def bytes2image(rawData:bytes,outPath:str,enableCompressionMode:bool) -> Image:
     '''将数据转存至图像'''
     global TQDM_NCOLS
     # TODO：图像转换为文件时，尝试保留采样率等信息
@@ -59,7 +59,7 @@ def bytes2image(rawData:bytes,outPath:str,enableCompressionMode:bool):
     printBL(en="Image File created!",zh="\u56fe\u7247\u6587\u4ef6\u5df2\u521b\u5efa\uff01")
     return newImage
 
-def file2image(path:str,outPath:str,enableCompressionMode:bool):
+def file2image(path:str,outPath:str,enableCompressionMode:bool) -> Image:
     '''将文件内数据转存至图像'''
     return bytes2image(rawData=file2bytes(path=path),outPath=outPath,
         enableCompressionMode=enableCompressionMode
@@ -86,24 +86,7 @@ def image2bytes(path:str) -> bytes:
     return rawData[:len(rawData)-toSliceByteNum] if needSlice else rawData
     # 一次失真，永久保真：字节单元问题给「原生音频」带来的影响微乎其微（仅有一点长度缩短）
 
-#aa,rr,gg,bb -> 0xaarrggbb
-def binaryToPixelBytes(binary):#bytes binary
-    global TQDM_NCOLS
-    result=binary
-    processBar=tqdm(range(3),desc=gsbl('Converting','\u8f6c\u6362\u4e2d'))
-    binaryLength=len(binary)
-    processBar.update(1)
-    lenMod4m3=3-binaryLength%4
-    processBar.update(1)
-    result=(result+b'\x00\x00\x00\x03' if lenMod4m3<0
-        else result+(lenMod4m3)*b'\x00'+bytes((lenMod4m3,))
-    )
-    processBar.update(1)
-    processBar.close()
-    return result
-#returns bytes
-
-def bytes2file(rawData:bytes,outPath:str) -> Image:
+def bytes2file(rawData:bytes,outPath:str) -> BufferedWriter:
     '''将数据写入文件'''
     # 写入文件
     with open(file=outPath,mode='wb',buffering=-1) as result:

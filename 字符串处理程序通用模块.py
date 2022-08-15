@@ -60,7 +60,7 @@ def inputIntBL(defaultWhenEmpty:int=0,en:str='',zh:str='') -> int:
 def _softParseInt(context:str,defaultWhenEmpty:int=0) -> int:
     return int(context) if context else defaultWhenEmpty
 
-def autoTypeInputBL(inputType:any,en:str='',zh:str='',formatObj:any=None,defaultWhenEmpty=None):
+def autoTypeInputBL(inputType:any,en:str='',zh:str='',formatObj:any=None,defaultWhenEmpty=None) -> any:
     message=gsbl(en=en,zh=zh)
     message=message%formatObj if formatObj else message
     if inputType==int:
